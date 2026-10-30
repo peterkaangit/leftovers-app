@@ -20,6 +20,10 @@ const Kitchen = (() => {
   // "chicken stock" is not your chicken, "garlic powder" is not your garlic.
   const PRODUCT_WORDS = /\b(stock|broth|sauce|oil|powder|paste|juice|cube|cubes|granules|extract|vinegar)$/;
 
+  // Things you can only use whole. If you entered them in pieces and a recipe
+  // asks for "3 tbsp beaten egg", that still takes a whole egg out of your stock.
+  const WHOLE_ITEMS = /\b(egg|eggs|avocado|avocados|stock cube|stock cubes|vanilla pod|vanilla pods|tortilla|tortillas|pita|pitta|naan|bun|buns|bread roll|bread rolls|croissant|croissants|wrap|wraps|taco shell|taco shells|sausage|sausages|burger|burgers)$/;
+
   // Things nobody needs to buy.
   const NEVER_BUY = new Set(["water", "ice", "hot water", "cold water"]);
 
@@ -81,7 +85,11 @@ const Kitchen = (() => {
     }
     const grams = Weights.toGrams(needed, recipeName);
     if (grams == null) return null;
-    return Weights.fromGrams(grams, entry.kind, entry.item.name, "");
+    const wanted = Weights.fromGrams(grams, entry.kind, entry.item.name, "");
+    if (wanted != null && entry.kind === "count" && WHOLE_ITEMS.test(entry.item.name.toLowerCase().trim())) {
+      return Math.ceil(wanted - 0.001);
+    }
+    return wanted;
   }
 
   /**

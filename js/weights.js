@@ -37,14 +37,15 @@ const Weights = (() => {
     "tofu": 400, "mozzarella": 125, "burrata": 125, "camembert": 250, "brie": 200,
     // Vegetables
     "onion": 150, "red onion": 150, "white onion": 150, "brown onion": 150,
-    "spring onion": 15, "green onion": 15, "scallion": 15, "shallot": 40, "garlic": 50,
-    "leek": 200, "tomato": 120, "plum tomato": 70, "cherry tomato": 15, "potato": 200,
+    "spring onion": 15, "green onion": 15, "scallion": 15, "shallot": 40, "garlic": 5, "garlic clove": 5,
+    "leek": 200, "tomato": 120, "plum tomato": 70, "chopped tomato": 400,
+    "tinned tomato": 400, "canned tomato": 400, "cherry tomato": 15, "potato": 200,
     "new potato": 50, "baby potato": 50, "sweet potato": 250, "carrot": 70, "parsnip": 150,
     "turnip": 200, "swede": 800, "beetroot": 150, "celery": 40, "celeriac": 700,
     "fennel": 250, "pepper": 160, "red pepper": 160, "green pepper": 160,
     "yellow pepper": 160, "bell pepper": 160, "chilli": 15, "chili": 15, "red chilli": 15,
     "green chilli": 15, "jalapeno": 20, "scotch bonnet": 10, "cucumber": 300,
-    "courgette": 200, "zucchini": 200, "aubergine": 300, "eggplant": 300, "mushroom": 20,
+    "courgette": 200, "zucchini": 200, "aubergine": 300, "eggplant": 300, "egg plant": 300, "mushroom": 20,
     "portobello mushroom": 80, "cabbage": 900, "red cabbage": 900, "savoy cabbage": 900,
     "lettuce": 500, "little gem": 100, "iceberg": 500, "broccoli": 350, "cauliflower": 600,
     "corn on the cob": 250, "artichoke": 300, "asparagus": 20, "pak choi": 150,
@@ -53,10 +54,11 @@ const Weights = (() => {
     // Fruit
     "lemon": 100, "lime": 60, "orange": 180, "apple": 180, "pear": 180, "banana": 120,
     "mango": 300, "pineapple": 1500, "peach": 150, "nectarine": 150, "plum": 70,
-    "apricot": 40, "fig": 50, "kiwi": 75, "date": 8, "prune": 8, "strawberry": 12,
+    "apricot": 40, "dried apricot": 8, "dried fig": 20, "fig": 50, "kiwi": 75, "date": 8, "prune": 8, "strawberry": 12,
     // Bread and the like
     "bread": 30, "bread roll": 60, "baguette": 250, "tortilla": 45, "flour tortilla": 45,
-    "pitta": 60, "pita": 60, "naan": 90, "bun": 60, "burger bun": 60, "brioche bun": 60,
+    "pitta": 60, "pita": 60, "pita bread": 60, "pitta bread": 60,
+    "naan": 90, "naan bread": 90, "bun": 60, "burger bun": 60, "brioche bun": 60,
     "english muffin": 60, "croissant": 60, "puff pastry": 320, "shortcrust pastry": 320,
     "filo pastry": 15, "lasagne sheet": 20, "taco shell": 12,
     // Herbs, spices and small things counted one by one
@@ -83,7 +85,8 @@ const Weights = (() => {
   // Words in a measure that mean a particular amount for one ingredient.
   const HERB = { bunch: 30, handful: 10, handfull: 10, sprig: 1, leaf: 0.1, stalk: 5 };
   const PIECE_BY_WORD = {
-    garlic: { clove: 5, bulb: 50, head: 50 },
+    // A plain "3 garlic" or "2 chopped garlic" means cloves; bulbs are named.
+    garlic: { clove: 5, bulb: 50, head: 50, whole: 50 },
     // Meat cut words: "5 boneless" chicken means pieces, not 5 whole chickens.
     chicken: { whole: 1500, boneless: 150, skinless: 150, fillet: 150, breast: 170,
                thigh: 110, leg: 250, drumstick: 100, wing: 90, piece: 150, joint: 200 },
@@ -105,6 +108,9 @@ const Weights = (() => {
     cinnamon: { stick: 3 },
     chocolate: { square: 5, bar: 100 },
     spinach: { bunch: 250, bag: 250, handful: 30 },
+    kale: { bunch: 200, bag: 200, handful: 30 },
+    "spring onion": { bunch: 100 }, scallion: { bunch: 100 }, "green onion": { bunch: 100 },
+    asparagus: { bunch: 250 }, radish: { bunch: 250 }, watercress: { bunch: 80 },
     lemon: { slice: 10, wedge: 15 },
     lime: { slice: 8, wedge: 10 },
     parsley: HERB, coriander: HERB, cilantro: HERB, basil: HERB, mint: HERB, dill: HERB,
@@ -113,7 +119,7 @@ const Weights = (() => {
 
   // Words that mean roughly the same amount whatever the ingredient.
   const GENERIC_WORD = {
-    can: 400, tin: 400, jar: 350, carton: 500, bottle: 500, handful: 30, bunch: 40,
+    can: 400, tin: 400, jar: 350, carton: 500, bottle: 500, handful: 30, bunch: 100,
     slice: 30, fillet: 150, sprig: 1, pinch: 0.5, dash: 1, splash: 15, drizzle: 10,
     glug: 15, leaf: 0.5, leave: 0.5, packet: 250, pack: 250, block: 250, bag: 250,
     cube: 10, sheet: 30, stalk: 40, stick: 40, knob: 15, pot: 300, tub: 300,
@@ -142,7 +148,7 @@ const Weights = (() => {
     "sherry": 1, "dry sherry": 1, "brandy": 0.95, "rum": 0.95, "dark rum": 0.95,
     "sake": 1, "mirin": 1.1, "marnier": 1, "liqueur": 1.05, "cider": 1, "stout": 1,
     "hotsauce": 1, "hot sauce": 1, "salsa": 1, "green salsa": 1, "sirop": 1.35,
-    "almond milk": 1.03, "oat milk": 1.03, "soy milk": 1.03, "coffee": 1, "cafe": 1, "espresso": 1, "puree": 1, "pumpkin puree": 1,
+    "egg": 1.03, "egg white": 1.03, "egg yolk": 1.03, "almond milk": 1.03, "oat milk": 1.03, "soy milk": 1.03, "coffee": 1, "cafe": 1, "espresso": 1, "puree": 1, "pumpkin puree": 1,
     "fromage frai": 1, "fromage frais": 1, "lemon": 1, "lime": 1,
     "shortening": 0.9, "goose fat": 0.9, "duck fat": 0.9, "fat": 0.9,
     // Flours, sugars, grains, pulses
