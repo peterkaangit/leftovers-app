@@ -7,8 +7,9 @@
  *   - what you still need to buy.
  *
  * Amounts are compared in base units (grams, millilitres, pieces) using
- * units.js. When two amounts can't be compared, for example you entered
- * grams and the recipe says cups, we assume you have enough.
+ * units.js. When the kinds differ, for example you entered grams and the
+ * recipe says "1 whole chicken" or "2 cups", weights.js converts through
+ * grams. Only when even that isn't possible do we assume you have enough.
  */
 
 const Kitchen = (() => {
@@ -50,11 +51,37 @@ const Kitchen = (() => {
     return stock;
   }
 
-  /** How much of one recipe ingredient is needed, scaled: { kind, value } or null. */
+  /**
+   * How much of one recipe ingredient is needed, scaled:
+   * { kind, value, word } (word is e.g. "cloves" for counts), or null.
+   */
   function need(measure, factor) {
     const parsed = Units.parseMeasure(measure);
-    if (!parsed) return null;
-    return Units.toBase(parsed.amount * factor, parsed.unit);
+    if (!parsed) {
+      // "Juice of 2" (lemons) means 2 of them.
+      const of = /\bof\s+(\d+)/i.exec(measure || "");
+      if (of) return { kind: "count", value: Number(of[1]) * factor, word: "" };
+      // "Whole" with no number, as in "Chicken: whole", means one.
+      return /whole/i.test(measure || "") ? { kind: "count", value: factor, word: "" } : null;
+    }
+    const base = Units.toBase(parsed.amount * factor, parsed.unit);
+    return { ...base, word: parsed.word };
+  }
+
+  /**
+   * Express what a recipe needs in the same kind of unit as your stock, so
+   * they can be subtracted. "1 whole chicken" against 800 g of chicken gives
+   * 1500 (grams). Returns null when there's no sensible conversion.
+   */
+  function inStockUnits(needed, recipeName, entry) {
+    // Plain counts ("2", "1 large", "3 chopped") compare directly with your pieces.
+    const plainCount = needed.kind === "count" && !Weights.isUnitWord(Weights.normalise(needed.word));
+    if (needed.kind === entry.kind && (needed.kind !== "count" || plainCount)) {
+      return needed.value;
+    }
+    const grams = Weights.toGrams(needed, recipeName);
+    if (grams == null) return null;
+    return Weights.fromGrams(grams, entry.kind, entry.item.name, "");
   }
 
   /**
@@ -80,7 +107,7 @@ const Kitchen = (() => {
         if (measureText && measureText.trim()) line.notes.add(measureText.trim().toLowerCase());
       } else if (amount.kind === "count") {
         // Keep "cloves" and "large" apart, so we never add 3 cloves to 1 large.
-        const word = Units.parseMeasure(measureText).word.toLowerCase();
+        const word = (Units.parseMeasure(measureText) || { word: "" }).word.toLowerCase();
         line.counts.set(word, (line.counts.get(word) || 0) + amount.value);
       } else {
         line[amount.kind] += amount.value;
@@ -98,14 +125,20 @@ const Kitchen = (() => {
           continue;
         }
         const entry = stock.get(item.name);
-        // No amount given, or units we can't compare: assume you have enough.
-        if (entry.value == null || !needed || needed.kind !== entry.kind) continue;
+        // No amount given, or units we can't convert: assume you have enough.
+        if (entry.value == null || !needed) continue;
+        const wanted = inStockUnits(needed, name, entry);
+        if (wanted == null) continue;
 
-        const used = Math.min(entry.value, needed.value);
+        const used = Math.min(entry.value, wanted);
         entry.value -= used;
-        const short = needed.value - used;
-        if (short > 0.0001) {
-          addToGrocery(name, { kind: needed.kind, value: short }, measure, dish);
+        // Whatever's missing goes on the list, in the recipe's own units.
+        const shortShare = (wanted - used) / wanted;
+        if (shortShare > 0.0001) {
+          let value = needed.value * shortShare;
+          // You can't buy half a chicken: round whole things up.
+          if (needed.kind === "count" && !Weights.isUnitWord(Weights.normalise(needed.word))) value = Math.ceil(value - 0.001);
+          addToGrocery(name, { kind: needed.kind, value }, measure, dish);
         }
       }
     }
@@ -144,8 +177,9 @@ const Kitchen = (() => {
     if (entry.value <= 0.0001) return { text: "Used up by your menu", short: true };
 
     const needed = need(measure, factor);
-    if (!needed || needed.kind !== entry.kind) return { text: `You have ${left}`, short: false };
-    const missing = needed.value - entry.value;
+    const wanted = needed && inStockUnits(needed, ingredientName, entry);
+    if (wanted == null) return { text: `You have ${left}`, short: false };
+    const missing = wanted - entry.value;
     if (missing <= 0.0001) return { text: `You have ${left}, that's enough`, short: false };
     return { text: `You have ${left}, need ${Units.formatBase(entry.kind, missing, system)} more`, short: true };
   }

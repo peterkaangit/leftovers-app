@@ -22,6 +22,10 @@ const Units = (() => {
     l:       { kind: "volume", base: 1000,   system: "metric" },
     cup:     { kind: "volume", base: 240,    system: "us" },
     "fl oz": { kind: "volume", base: 29.57,  system: "us" },
+    quart:   { kind: "volume", base: 946,    system: "us" },
+    pint:    { kind: "volume", base: 568,    system: "metric" }, // a British pint
+    shot:    { kind: "volume", base: 30,     system: "both" },
+    drop:    { kind: "volume", base: 0.05,   system: "both" },
     // Spoons are used on both sides of the Atlantic, so we leave them alone
     // in metric mode and only use them as targets in US mode.
     tbsp:    { kind: "volume", base: 15,     system: "both" },
@@ -47,6 +51,8 @@ const Units = (() => {
     "fl oz": "fl oz", "fluid ounce": "fl oz", "fluid ounces": "fl oz",
     tbsp: "tbsp", tbs: "tbsp", tblsp: "tbsp", tbls: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp",
     tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp",
+    quart: "quart", quarts: "quart", qt: "quart", pint: "pint", pints: "pint", pt: "pint",
+    shot: "shot", shots: "shot", drop: "drop", drops: "drop",
   };
 
   const FRACTIONS = { "½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": 0.125 };
@@ -89,7 +95,8 @@ const Units = (() => {
 
   function format(amount, unit) {
     if (unit === "pcs") return `${formatNumber(amount, unit)} ${amount > 1 ? "pieces" : "piece"}`;
-    const label = unit === "cup" && amount > 1.125 ? "cups" : unit;
+    const plural = amount > 1.125 && ["cup", "quart", "pint", "shot", "drop"].includes(unit);
+    const label = plural ? unit + "s" : unit;
     return `${formatNumber(amount, unit)} ${label}`;
   }
 
@@ -112,6 +119,22 @@ const Units = (() => {
   }
 
   /**
+   * Recipes write numbers in creative ways. Rewrite the common ones so the
+   * parser below understands them:
+   *   "2-1/2 cups" -> "2 1/2 cups"    "1-⅓ cups" -> "1⅓ cups"
+   *   "2-3 tbsp"   -> "2.5 tbsp"      "2 x 400g" -> "800 g"
+   *   "4-ounce"    -> "4 ounce"
+   */
+  function tidyNumbers(text) {
+    return text
+      .replace(/^(\s*[\d.\/½¼¾⅓⅔⅛ ]+?)\s*-\s*(?=[a-zA-Z])/, "$1 ")
+      .replace(/^(\s*\d+)-(\d+\/\d+)/, "$1 $2")
+      .replace(/^(\s*\d+)-([½¼¾⅓⅔⅛])/, "$1$2")
+      .replace(/^\s*(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)(?![\d/])/, (all, a, b) => String((Number(a) + Number(b)) / 2))
+      .replace(/^\s*(\d+)\s*x\s*(\d+(?:\.\d+)?)\s*/i, (all, a, b) => String(Number(a) * Number(b)) + " ");
+  }
+
+  /**
    * Read a recipe measure like "500g", "1 1/2 cups", "2 tbs chopped" or "3 cloves".
    * Returns { amount, unit, word, rest }, or null when there's no number
    * to work with (e.g. "to taste", "pinch").
@@ -119,6 +142,7 @@ const Units = (() => {
    * as a count: unit "pcs", and word keeps the original word ("cloves").
    */
   function parseMeasure(text) {
+    text = tidyNumbers(text || "");
     const match = /^\s*((?:\d+(?:[.,]\d+)?\s*)?(?:\d+\/\d+|[½¼¾⅓⅔⅛])?)(?![\d/.,])\s*(fl\.?\s?oz|fluid ounces?|[a-zA-Z]+)?\b\.?(.*)$/.exec(text || "");
     if (!match || !match[1].trim()) return null;
     const amount = parseNumber(match[1]);

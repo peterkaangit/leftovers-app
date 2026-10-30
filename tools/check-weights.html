@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weight table check</title>
+  <style>
+    body { margin: 0; padding: 2rem 1rem; background: #f4f3ee; color: #1f1a17; font: 15px/1.5 system-ui, sans-serif; }
+    main { max-width: 56rem; margin: 0 auto; }
+    h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
+    p { max-width: 42rem; }
+    button { padding: 0.5rem 1.1rem; border: 1px solid #1f1a17; border-radius: 999px; background: #fff; font: inherit; cursor: pointer; }
+    table { width: 100%; margin-top: 1rem; border-collapse: collapse; background: #fff; }
+    th, td { padding: 0.35rem 0.6rem; border-bottom: 1px solid #ddd8cf; text-align: left; vertical-align: top; }
+    td.num { text-align: right; }
+    .muted { color: #6b625b; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Weight table check</h1>
+  <p class="muted">
+    Downloads every recipe from TheMealDB (one request per letter, a–z) and tries to turn
+    each ingredient amount into grams using js/weights.js. The table lists what still
+    can't be converted, most common first. Add those to weights.js, then run this again.
+  </p>
+  <p><button id="run">Run the check</button> <button id="copy" hidden>Copy results</button></p>
+  <p id="summary"></p>
+  <table id="table" hidden>
+    <thead><tr><th>Ingredient</th><th>Unit or word</th><th class="num">Times</th><th>Examples</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h2 id="pieces-title" hidden>Pieces to sense-check</h2>
+  <p id="pieces-intro" class="muted" hidden>
+    Amounts counted in pieces, and the weight each piece got. Look for odd ones,
+    like "5 boneless" chicken counted as 5 whole chickens.
+  </p>
+  <table id="pieces" hidden>
+    <thead><tr><th>Ingredient</th><th>Word</th><th class="num">Grams each</th><th class="num">Times</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</main>
+
+<!-- The same files the site uses, so we test exactly what the site does -->
+<script src="../js/units.js"></script>
+<script src="../js/weights.js"></script>
+<script>
+  const BASE = "https://www.themealdb.com/api/json/v1/1/";
+  const summary = document.getElementById("summary");
+  const tbody = document.querySelector("#table tbody");
+  let report = "";
+
+  document.getElementById("run").addEventListener("click", async () => {
+    summary.textContent = "Downloading recipes…";
+    const letters = "abcdefghijklmnopqrstuvwxyz".split("");
+    const pages = await Promise.all(letters.map((letter) =>
+      fetch(BASE + "search.php?f=" + letter).then((r) => r.json()).catch(() => ({ meals: null }))));
+    const meals = pages.flatMap((page) => page.meals || []);
+
+    let total = 0, converted = 0, noNumber = 0;
+    const missing = new Map(); // "name|unit" -> { name, unit, count, examples:Set }
+    const pieces = new Map();  // "name|word" -> { name, word, each, count }
+
+    for (const meal of meals) {
+      for (let n = 1; n <= 20; n++) {
+        const name = (meal["strIngredient" + n] || "").trim();
+        const measure = (meal["strMeasure" + n] || "").trim();
+        if (!name) continue;
+        total++;
+        const parsed = Units.parseMeasure(measure);
+        if (!parsed) { noNumber++; continue; } // "to taste", "pinch", empty…
+        const base = Units.toBase(parsed.amount, parsed.unit);
+        const grams = Weights.toGrams({ ...base, word: parsed.word }, name);
+        if (grams != null) {
+          converted++;
+          // Remember how pieces were weighed, for the sense-check table.
+          if (base.kind === "count") {
+            const word = parsed.word.toLowerCase();
+            const key = Weights.normalise(name) + "|" + word;
+            if (!pieces.has(key)) pieces.set(key, { name: Weights.normalise(name), word, each: grams / base.value, count: 0 });
+            pieces.get(key).count++;
+          }
+          continue;
+        }
+
+        const unit = base.kind === "count" ? (parsed.word.toLowerCase() || "pieces") : base.kind;
+        const key = Weights.normalise(name) + "|" + unit;
+        if (!missing.has(key)) missing.set(key, { name: Weights.normalise(name), unit, count: 0, examples: new Set() });
+        const row = missing.get(key);
+        row.count++;
+        if (row.examples.size < 3) row.examples.add(measure);
+      }
+    }
+
+    const rows = [...missing.values()].sort((a, b) => b.count - a.count);
+    const withNumber = total - noNumber;
+    summary.textContent =
+      `${meals.length} recipes, ${total} ingredient amounts. ` +
+      `${converted} of the ${withNumber} amounts with a number convert to grams ` +
+      `(${Math.round((converted / withNumber) * 100)}%). ` +
+      `${noNumber} have no number, like "to taste" or "pinch", and are skipped.`;
+
+    tbody.replaceChildren(...rows.slice(0, 150).map((row) => {
+      const tr = document.createElement("tr");
+      for (const [text, cls] of [[row.name], [row.unit], [String(row.count), "num"], [[...row.examples].join(" / ")]]) {
+        const td = document.createElement("td");
+        td.textContent = text;
+        if (cls) td.className = cls;
+        tr.append(td);
+      }
+      return tr;
+    }));
+    document.getElementById("table").hidden = false;
+
+    const pieceRows = [...pieces.values()].sort((a, b) => b.count - a.count).slice(0, 200);
+    document.querySelector("#pieces tbody").replaceChildren(...pieceRows.map((row) => {
+      const tr = document.createElement("tr");
+      for (const [text, cls] of [[row.name], [row.word || "(none)"], [String(Math.round(row.each * 10) / 10), "num"], [String(row.count), "num"]]) {
+        const td = document.createElement("td");
+        td.textContent = text;
+        if (cls) td.className = cls;
+        tr.append(td);
+      }
+      return tr;
+    }));
+    for (const id of ["pieces", "pieces-title", "pieces-intro"]) document.getElementById(id).hidden = false;
+
+    report = summary.textContent + "\n" +
+      rows.slice(0, 150).map((r) => `${r.name} | ${r.unit} | ${r.count} | ${[...r.examples].join(" / ")}`).join("\n") +
+      "\n\nPIECES\n" + pieceRows.map((r) => `${r.name} | ${r.word || "(none)"} | ${Math.round(r.each)} g | ${r.count}`).join("\n");
+    document.getElementById("copy").hidden = false;
+  });
+
+  document.getElementById("copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(report); summary.append(" Copied."); }
+    catch (error) { summary.append(" Couldn't copy, select the table instead."); }
+  });
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-# Leftovers
+# Finish the Fridge
 
 Type what's in your fridge, get recipes that use up as much of it as possible.
 Recipes and ingredient photos come from [TheMealDB](https://www.themealdb.com/api.php), a free recipe API.
@@ -17,6 +17,8 @@ css/style.css    how it looks
 js/mealdb.js     ALL the API calls live here
 js/units.js      metric / US amounts, scaling and converting recipe measures
 js/kitchen.js    the menu maths: what's left in your kitchen, the grocery list
+js/weights.js    typical weights: "1 whole chicken", "3 cloves", "1 cup of rice" -> grams
+tools/check-weights.html   lists recipe amounts weights.js can't convert yet
 js/backdrops.js  the list of background photos (swap in your own here)
 js/app.js        reads your ingredients and draws the results
 ```
