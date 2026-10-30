@@ -87,6 +87,9 @@ img { display: block; max-width: 100%; }
 }
 
 .hero-inner {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
   width: 100%;
   max-width: 72rem;
   margin: 0 auto;
@@ -94,16 +97,33 @@ img { display: block; max-width: 100%; }
 }
 
 .wordmark {
-  position: absolute;
-  top: 1.75rem;
-  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 0 0 3.5rem;
   font: italic 400 1.5rem/1 var(--serif);
   letter-spacing: 0.01em;
 }
 
+/* The fridge logo sits on a small paper-coloured disc so it reads over any photo */
+.wordmark-badge {
+  display: grid;
+  place-items: center;
+  width: 4.875rem;
+  height: 4.875rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+}
+.wordmark-badge img {
+  width: 3.75rem;
+  height: 3.75rem;
+}
+
 h1 {
   max-width: 11ch;
-  margin: 0;
+  margin: auto 0 0; /* auto top margin pushes the content to the bottom of the photo */
   font: 400 clamp(3rem, 8.5vw, 7rem)/0.95 var(--serif);
   letter-spacing: -0.02em;
 }
@@ -268,6 +288,7 @@ h1 {
 .chip-remove:hover { background: rgb(255 255 255 / 0.2); color: #fff; }
 
 .find-button {
+  align-self: flex-start;
   margin-top: 2rem;
   padding: 1rem 2.4rem;
   border: 0;
@@ -287,6 +308,14 @@ h1 {
   margin: 0 auto;
   padding: 4rem 1.25rem;
   scroll-margin-top: 1rem;
+}
+
+/* With the menu showing: results on the left, menu on the right */
+.book:has(.menu-panel:not([hidden])) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+  gap: 3rem;
+  max-width: 84rem;
 }
 
 .status {
@@ -523,24 +552,306 @@ h1 {
   color: var(--muted);
 }
 
+/* ---------- People stepper (in the hero) ---------- */
+
+.people {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9375rem;
+  color: rgb(255 255 255 / 0.8);
+}
+
+.people-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 999px;
+}
+.people-stepper button {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.people-stepper button:hover { background: rgb(255 255 255 / 0.18); }
+#people-count {
+  min-width: 1.5rem;
+  text-align: center;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* ---------- Servings line and add-to-menu on each recipe ---------- */
+
+.servings {
+  max-width: 34rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--muted);
+}
+.servings select {
+  margin: 0 0.15rem;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--ink);
+  font: 600 0.9375rem var(--sans);
+}
+
+.recipe-actions { margin-top: 2rem; }
+
+.add-to-menu {
+  padding: 0.75rem 1.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--saffron);
+  color: var(--ink);
+  font: 600 1rem var(--sans);
+  cursor: pointer;
+}
+.add-to-menu:hover { background: #efbb52; }
+
+.recipe-actions + .method { margin-top: 1rem; }
+
+/* ---------- The menu sidebar ---------- */
+
+.menu-panel {
+  position: sticky;
+  top: 1.5rem;
+  align-self: start;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  padding: 1.75rem 1.5rem;
+  background: #fff;
+  border-top: 3px solid var(--ink);
+  transition: box-shadow 0.3s ease;
+}
+.menu-panel[hidden] { display: none; }
+.menu-panel.just-added { box-shadow: 0 0 0 3px var(--saffron); }
+
+.menu-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.menu-panel h2 {
+  margin: 0;
+  font: 400 1.875rem/1.1 var(--serif);
+}
+.menu-close { display: none; }
+
+.menu-people {
+  margin: 0.25rem 0 1rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.menu-panel h3 {
+  margin: 1.75rem 0 0.5rem;
+  font: italic 400 1.25rem var(--serif);
+}
+
+.menu-list, .stock-list, .grocery-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.menu-empty {
+  font-size: 0.9375rem;
+  color: var(--muted);
+}
+
+.menu-dish {
+  display: grid;
+  grid-template-columns: 3rem 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+  font: 400 1.0625rem/1.25 var(--serif);
+}
+.menu-dish img {
+  width: 3rem;
+  height: 3rem;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.menu-remove {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.15rem;
+  cursor: pointer;
+}
+.menu-remove:hover { background: var(--line); color: var(--ink); }
+
+.stock-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px dotted var(--line);
+  font-size: 0.9375rem;
+}
+.stock-amount { color: var(--muted); text-align: right; }
+.stock-list li.used-up span:first-child { text-decoration: line-through; color: var(--muted); }
+.stock-list li.used-up .stock-amount { color: var(--short); }
+
+.grocery-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.copy-grocery {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 500 0.875rem var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.copy-grocery[hidden] { display: none; }
+
+/* Grocery line: tick box, name, amount on the right, recipes underneath in small print */
+.grocery-line label {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  column-gap: 0.55rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px dotted var(--line);
+  cursor: pointer;
+}
+.grocery-line input {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: 0.15rem 0 0;
+  accent-color: var(--ink);
+}
+.grocery-words {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 0.75rem;
+  line-height: 1.3;
+}
+.grocery-name { font-size: 0.875rem; font-weight: 500; }
+.grocery-amount { font-size: 0.8125rem; color: var(--muted); text-align: right; }
+.grocery-for { grid-column: 1 / -1; font-size: 0.6875rem; color: var(--muted); }
+.grocery-line input:checked + .grocery-words { opacity: 0.45; text-decoration: line-through; }
+
+.menu-toggle { display: none; }
+
+/* Narrower screens: the menu becomes a panel that slides up from the bottom */
+@media (max-width: 1000px) {
+  .book:has(.menu-panel:not([hidden])) { display: block; }
+
+  .menu-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    top: auto;
+    z-index: 10;
+    max-height: 85vh;
+    box-shadow: 0 -10px 40px rgb(0 0 0 / 0.25);
+    transform: translateY(105%);
+    transition: transform 0.3s ease;
+  }
+  .menu-panel.open { transform: translateY(0); }
+  .menu-close {
+    display: block;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 0;
+    border-radius: 50%;
+    background: var(--paper);
+    font-size: 1.3rem;
+    cursor: pointer;
+  }
+
+  .menu-toggle {
+    display: block;
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 9;
+    padding: 0.85rem 1.5rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--paper);
+    font: 600 1rem var(--sans);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.3);
+    cursor: pointer;
+  }
+  .menu-toggle[hidden] { display: none; }
+}
+
 /* ---------- Small screens ---------- */
 
 @media (max-width: 760px) {
-  .hero-inner { padding-top: 6rem; padding-bottom: 3rem; }
+  .hero-inner { padding-top: 1.25rem; padding-bottom: 3rem; }
+  .wordmark { margin-bottom: 2.5rem; }
   .pantry-form { grid-template-columns: 1fr; }
   .add-button { justify-self: start; }
-  .find-button { width: 100%; }
+  .find-button { align-self: stretch; }
 
-  .recipe { grid-template-columns: 1fr; gap: 1.75rem; padding: 3rem 0; }
-  .recipe:nth-child(even) .recipe-photo { order: 0; }
-  .recipe-photo img { aspect-ratio: 4 / 3; }
-  .ingredients { grid-template-columns: 1fr; }
-  .filter, .filter select { width: 100%; }
+  /* Results: smaller type, smaller photos and tighter spacing on phones */
+  .book { padding: 2.25rem 1rem 5rem; }
+  .status { margin-bottom: 1.5rem; font-size: 1.125rem; }
+
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem 0.75rem;
+    margin-bottom: 1.75rem;
+    padding: 0.85rem 0;
+  }
+  .filter span { font-size: 0.875rem; }
+  .filter select { width: 100%; min-width: 0; padding: 0.4rem 0.6rem; font-size: 0.875rem; }
+  .clear-filters, .filter-count { padding: 0; font-size: 0.8125rem; }
   .filter-count { margin-left: 0; }
+
+  .recipe { grid-template-columns: 1fr; gap: 1rem; padding: 2rem 0; }
+  .recipe:nth-child(even) .recipe-photo { order: 0; }
+  .recipe-photo img { aspect-ratio: 16 / 10; }
+  .recipe-rank { bottom: 0.6rem; left: 0.6rem; padding: 0.15rem 0.65rem; font-size: 0.9375rem; }
+
+  .recipe-title { font-size: 1.75rem; }
+  .tags { margin-top: 0.6rem; gap: 0.35rem; }
+  .tags li { padding: 0.05rem 0.55rem; font-size: 0.75rem; }
+  .recipe-uses { margin-top: 0.75rem; font-size: 0.9375rem; }
+  .servings { margin-top: 0.4rem; font-size: 0.8125rem; }
+  .servings select { font-size: 0.8125rem; }
+
+  .recipe-subhead { margin: 1.25rem 0 0.35rem; font-size: 1.0625rem; }
+  .ingredients { grid-template-columns: 1fr; }
+  .ingredients li { grid-template-columns: 1.4rem 1fr auto; column-gap: 0.5rem; padding: 0.25rem 0; font-size: 0.875rem; }
+  .ingredient-icon { width: 1.4rem; height: 1.4rem; }
+  .ingredient-measure { font-size: 0.8125rem; }
+  .ingredient-note { font-size: 0.75rem; }
+
+  .recipe-actions { margin-top: 1.25rem; }
+  .add-to-menu { padding: 0.6rem 1.25rem; font-size: 0.9375rem; }
+  .recipe-actions + .method { margin-top: 0.6rem; }
+  .method summary { padding: 0.45rem 1.1rem; font-size: 0.9375rem; }
+  .method p { font-size: 0.9375rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .slide, .slide.is-active { transform: none; transition: opacity 1s ease; }
+  .menu-panel { transition: none; }
   .chip.arrives { animation: none; }
   .status-loading::after { animation-duration: 2.4s; }
 }

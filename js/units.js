@@ -112,41 +112,64 @@ const Units = (() => {
   }
 
   /**
-   * Read a recipe measure like "500g", "1 1/2 cups" or "2 tbs chopped".
-   * Returns { amount, unit, rest } or null when it can't be read
-   * (e.g. "to taste", "pinch", "1 large").
+   * Read a recipe measure like "500g", "1 1/2 cups", "2 tbs chopped" or "3 cloves".
+   * Returns { amount, unit, word, rest }, or null when there's no number
+   * to work with (e.g. "to taste", "pinch").
+   * Measures without a known unit ("3 cloves", "1 large", "4") are treated
+   * as a count: unit "pcs", and word keeps the original word ("cloves").
    */
   function parseMeasure(text) {
-    const match = /^\s*((?:\d+(?:[.,]\d+)?\s*)?(?:\d+\/\d+|[½¼¾⅓⅔⅛])?)\s*(fl\.?\s?oz|fluid ounces?|[a-zA-Z]+)\b\.?(.*)$/.exec(text || "");
+    const match = /^\s*((?:\d+(?:[.,]\d+)?\s*)?(?:\d+\/\d+|[½¼¾⅓⅔⅛])?)(?![\d/.,])\s*(fl\.?\s?oz|fluid ounces?|[a-zA-Z]+)?\b\.?(.*)$/.exec(text || "");
     if (!match || !match[1].trim()) return null;
-    const unit = ALIASES[match[2].toLowerCase().replace(/\./g, "").replace(/\s+/g, " ").replace("floz", "fl oz")];
-    if (!unit) return null;
-    return { amount: parseNumber(match[1]), unit, rest: match[3] };
-  }
-
-  /** Rewrite a recipe measure in the chosen system, or return it unchanged. */
-  function convertMeasure(text, system) {
-    const parsed = parseMeasure(text);
-    if (!parsed) return text;
-    const converted = toSystem(parsed.amount, parsed.unit, system);
-    return format(converted.amount, converted.unit) + parsed.rest;
+    const amount = parseNumber(match[1]);
+    if (!(amount > 0)) return null;
+    const word = match[2] || "";
+    const unit = ALIASES[word.toLowerCase().replace(/\./g, "").replace(/\s+/g, " ").replace("floz", "fl oz")];
+    if (unit) return { amount, unit, word: "", rest: match[3] };
+    return { amount, unit: "pcs", word, rest: match[3] };
   }
 
   /**
-   * Compare what you have with what a recipe needs.
-   * Returns "enough", a "need X more" string, or null if they can't be compared
-   * (different kinds, like grams vs cups, or a measure we couldn't read).
+   * Rewrite a recipe measure for a different number of people (factor 0.5 =
+   * half the amounts) in the chosen system. "to taste" and friends are
+   * returned unchanged.
    */
-  function compare(have, neededText, system) {
-    const needed = parseMeasure(neededText);
-    if (!have || !needed) return null;
-    const a = DEFS[have.unit], b = DEFS[needed.unit];
-    if (!a || !b || a.kind !== b.kind) return null;
-    const short = needed.amount * b.base - have.amount * a.base;
-    if (short <= 0) return "enough";
-    const more = toSystem(short / b.base, needed.unit, system);
-    return `need ${format(more.amount, more.unit)} more`;
+  function scaleMeasure(text, factor, system) {
+    const parsed = parseMeasure(text);
+    if (!parsed) return (text || "").trim();
+    const amount = parsed.amount * factor;
+    if (parsed.unit === "pcs") {
+      return `${formatNumber(amount, "pcs")} ${parsed.word}${parsed.rest}`.trim();
+    }
+    if (DEFS[parsed.unit].system === "both") {
+      // Spoons: stay spoons in metric, and toSystem leaves them alone in US too.
+      return (format(amount, parsed.unit) + parsed.rest).trim();
+    }
+    const base = toBase(amount, parsed.unit);
+    return (formatBase(base.kind, base.value, system) + parsed.rest).trim();
   }
 
-  return { CHOICES, defaultSystem, toSystem, format, convertMeasure, compare };
+  /**
+   * Turn any amount into its base unit so different units can be added up
+   * and compared: { kind: "mass", value: grams }, { kind: "volume", value: ml }
+   * or { kind: "count", value: pieces }.
+   */
+  function toBase(amount, unit) {
+    const def = DEFS[unit];
+    return def ? { kind: def.kind, value: amount * def.base } : null;
+  }
+
+  /** The reverse of toBase, written nicely in the chosen system. */
+  function formatBase(kind, value, system) {
+    if (kind === "count") return format(value, "pcs");
+    // Small volumes read better as spoons in both systems: 15 ml -> 1 tbsp.
+    if (kind === "volume" && value < 50) return value < 15 ? format(value / 5, "tsp") : format(value / 15, "tbsp");
+    const unit = kind === "mass" ? "g" : "ml";
+    const shown = toSystem(value, unit, system === "us" ? "us" : "metric");
+    // In metric mode toSystem keeps ml/g, so pick kg / l for big amounts here.
+    if (system === "metric" && value >= 1000) return format(value / 1000, unit === "g" ? "kg" : "l");
+    return format(shown.amount, shown.unit);
+  }
+
+  return { CHOICES, defaultSystem, toSystem, format, formatNumber, parseMeasure, scaleMeasure, toBase, formatBase };
 })();

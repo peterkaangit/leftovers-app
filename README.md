@@ -15,7 +15,8 @@ Double-click `index.html`. That's it: no install, no build step.
 index.html       the page itself
 css/style.css    how it looks
 js/mealdb.js     ALL the API calls live here
-js/units.js      metric / US amounts, and converting recipe measures
+js/units.js      metric / US amounts, scaling and converting recipe measures
+js/kitchen.js    the menu maths: what's left in your kitchen, the grocery list
 js/backdrops.js  the list of background photos (swap in your own here)
 js/app.js        reads your ingredients and draws the results
 ```
@@ -46,14 +47,29 @@ What the site does when you press **Find recipes**:
 1. `filter.php` only accepts one ingredient, so it sends one request per item,
    all at the same time (`Promise.allSettled` in `mealdb.js`).
 2. It counts how many of your items each meal appeared for, and sorts by that.
-3. It calls `lookup.php` for the top 6 to get ingredients and instructions.
-4. `app.js` draws a "cookbook page" for each one.
+3. It calls `lookup.php` for the top 20 to get ingredients, instructions,
+   cuisine (`strArea`), meal type (`strCategory`) and tags (`strTags`).
+4. The Cuisine / Meal type / Tag dropdowns are built from those 20 recipes.
+   Filtering happens in the browser, with no extra API calls.
+5. `app.js` draws a "cookbook page" for each one, 6 at a time.
 
 Ingredient cut-out photos are plain image URLs, not API calls:
 `https://www.themealdb.com/images/ingredients/Garlic-Small.png`
 
 To see the requests happen, press F12 in your browser, open the **Network** tab
 and search for something.
+
+## Servings, menu and grocery list
+
+TheMealDB doesn't say how many people a recipe serves, so the site assumes 4
+(`DEFAULT_SERVES` in `js/kitchen.js`); you can change it per recipe. Amounts are
+multiplied by *people eating ÷ recipe serves*.
+
+When you add a dish to your menu, `Kitchen.plan()` goes through the menu in
+order, takes each dish's ingredients out of your kitchen, and puts whatever
+your kitchen can't cover on the grocery list. The remaining dishes are then
+re-ranked by how many of your ingredients are still left. None of this calls
+the API: it all works on the recipes already fetched.
 
 ## Deploying to Netlify
 

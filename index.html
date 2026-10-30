@@ -3,8 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Leftovers</title>
+  <title>Finish the Fridge</title>
   <meta name="description" content="Tell it what's in your fridge and get recipes that use it up.">
+
+  <!-- The fridge logo in the browser tab (and on phone home screens) -->
+  <link rel="icon" href="images/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="images/favicon-192.png">
+  <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
 
   <!-- Fonts: Bodoni Moda for headings, Work Sans for everything else -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +26,10 @@
     <div id="backdrop" class="backdrop" aria-hidden="true"></div>
 
     <div class="hero-inner">
-      <p class="wordmark">Leftovers</p>
+      <p class="wordmark">
+        <span class="wordmark-badge"><img src="images/favicon-192.png" alt="" width="60" height="60"></span>
+        Finish the Fridge
+      </p>
 
       <h1>What's left in your&nbsp;kitchen?</h1>
       <p class="lede">Tell us what you have and how much. We'll find the dishes that use up the most of it.</p>
@@ -45,6 +54,14 @@
           <button type="button" role="radio" data-system="metric">Metric</button>
           <button type="button" role="radio" data-system="us">US</button>
         </div>
+        <div class="people">
+          <span id="people-label">Cooking for</span>
+          <div class="people-stepper" role="group" aria-labelledby="people-label">
+            <button type="button" data-step="-1" aria-label="Fewer people">−</button>
+            <span id="people-count" aria-live="polite">2</span>
+            <button type="button" data-step="1" aria-label="More people">+</button>
+          </div>
+        </div>
         <button id="example-button" type="button" class="link-button">Try an example kitchen</button>
       </div>
 
@@ -56,6 +73,7 @@
   </header>
 
   <main class="book">
+    <div class="book-main">
     <!-- Loading, errors and "nothing found" messages -->
     <p id="status" class="status" role="status" aria-live="polite"></p>
 
@@ -80,7 +98,30 @@
     <!-- Recipe pages are added here by app.js -->
     <ol id="results" class="results"></ol>
     <button id="more-button" type="button" class="more-button" hidden>Show more dishes</button>
+    </div>
+
+    <!-- Your menu, what's left in your kitchen, and the grocery list (filled in by app.js) -->
+    <aside id="menu-panel" class="menu-panel" aria-label="Your menu" hidden>
+      <div class="menu-head">
+        <h2>Your menu</h2>
+        <button id="menu-close" type="button" class="menu-close" aria-label="Close menu">×</button>
+      </div>
+      <p id="menu-people" class="menu-people"></p>
+      <ul id="menu-list" class="menu-list"></ul>
+
+      <h3>Left in your kitchen</h3>
+      <ul id="stock-list" class="stock-list"></ul>
+
+      <div class="grocery-head">
+        <h3>Grocery list</h3>
+        <button id="copy-grocery" type="button" class="copy-grocery" hidden>Copy list</button>
+      </div>
+      <ul id="grocery-list" class="grocery-list"></ul>
+    </aside>
   </main>
+
+  <!-- Phones: opens the menu panel -->
+  <button id="menu-toggle" type="button" class="menu-toggle" hidden>Your menu</button>
 
   <footer class="colophon">
     Recipes and ingredient photos from <a href="https://www.themealdb.com" target="_blank" rel="noopener">TheMealDB</a>.
@@ -90,6 +131,7 @@
   <!-- Order matters: app.js uses everything defined in the files above it. -->
   <script src="js/mealdb.js"></script>
   <script src="js/units.js"></script>
+  <script src="js/kitchen.js"></script>
   <script src="js/backdrops.js"></script>
   <script src="js/app.js"></script>
 </body>

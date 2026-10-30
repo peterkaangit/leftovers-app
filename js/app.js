@@ -1,7 +1,8 @@
 /*
  * app.js — the page logic: reading your ingredients and amounts, the photo
- * background, and drawing the results. It never talks to the API directly;
- * it asks MealDB.findRecipes() (in mealdb.js) and draws whatever comes back.
+ * background, drawing the results, the menu and the grocery list.
+ * It never talks to the API directly; it asks MealDB.findRecipes() (in
+ * mealdb.js) and draws whatever comes back. The menu maths is in kitchen.js.
  */
 
 const form = document.getElementById("fridge-form");
@@ -19,6 +20,16 @@ const filtersBox = document.getElementById("filters");
 const filterCount = document.getElementById("filter-count");
 const clearButton = document.getElementById("clear-filters");
 const moreButton = document.getElementById("more-button");
+const peopleCount = document.getElementById("people-count");
+const peopleButtons = document.querySelectorAll(".people-stepper button");
+const menuPanel = document.getElementById("menu-panel");
+const menuList = document.getElementById("menu-list");
+const menuPeople = document.getElementById("menu-people");
+const stockList = document.getElementById("stock-list");
+const groceryList = document.getElementById("grocery-list");
+const copyButton = document.getElementById("copy-grocery");
+const menuToggle = document.getElementById("menu-toggle");
+const menuClose = document.getElementById("menu-close");
 
 // The three filter dropdowns, and which recipe field each one looks at.
 const FILTERS = {
@@ -41,6 +52,19 @@ let system = loadSystem();
 
 // The last search, so switching units can redraw it without asking the API again.
 let lastRecipes = [];
+
+// How many people are eating. Recipe amounts are scaled to this.
+let people = 2;
+
+// TheMealDB doesn't say how many a recipe serves. We assume
+// Kitchen.DEFAULT_SERVES, and you can change it per recipe: idMeal -> number.
+const serves = new Map();
+
+// The dishes you picked, in the order you picked them.
+let menu = [];
+
+// Grocery lines you've ticked off, by lower-case name.
+const ticked = new Set();
 
 /* ---------- Small helpers ---------- */
 
@@ -96,7 +120,7 @@ function setSystem(next) {
   unitSelect.value = system === "metric" ? "g" : "oz";
 
   renderChips();
-  renderResults();
+  renderAll();
 }
 
 systemButtons.forEach((button) =>
@@ -131,11 +155,13 @@ function addFromForm() {
   amountInput.value = "";
   input.focus();
   renderChips();
+  renderAll(); // a changed amount changes what's left
 }
 
 function removeItem(name) {
   items = items.filter((item) => item.name !== name);
   renderChips();
+  renderAll();
 }
 
 function renderChips() {
@@ -230,9 +256,11 @@ async function search() {
     showStatus(message, "info");
 
     lastRecipes = recipes;
+    menuPanel.hidden = false;
+    menuToggle.hidden = false;
     buildFilters();
     shownCount = PAGE_SIZE;
-    renderResults();
+    renderAll();
   } catch (error) {
     console.error(error); // full details in the browser's developer console (F12)
     showStatus(error.message || "Something went wrong. Try again.", "error");
@@ -304,39 +332,74 @@ moreButton.addEventListener("click", () => {
   renderResults();
 });
 
-/* ---------- Drawing the recipes ---------- */
+/* ---------- People and servings ---------- */
 
-function renderResults() {
-  const matching = filteredRecipes();
-  const shown = matching.slice(0, shownCount);
-  results.replaceChildren(...shown.map((recipe, index) => buildRecipe(recipe, index + 1)));
+peopleButtons.forEach((button) =>
+  button.addEventListener("click", () => {
+    people = Math.min(20, Math.max(1, people + Number(button.dataset.step)));
+    peopleCount.textContent = people;
+    renderAll();
+  }));
 
+// How much to multiply a recipe's amounts by: 2 people from a recipe for 4 = 0.5.
+function factorFor(recipe) {
+  return people / (serves.get(recipe.meal.idMeal) || Kitchen.DEFAULT_SERVES);
+}
+
+// Run the kitchen maths for the current menu (see kitchen.js).
+function currentPlan() {
+  return Kitchen.plan(items, menu.map((recipe) => ({ recipe, factor: factorFor(recipe) })));
+}
+
+function onMenu(recipe) {
+  return menu.some((picked) => picked.meal.idMeal === recipe.meal.idMeal);
+}
+
+/* ---------- Drawing everything ---------- */
+
+function renderAll() {
+  const plan = currentPlan();
+  renderResults(plan);
+  renderMenu(plan);
+}
+
+function renderResults(plan = currentPlan()) {
   if (!lastRecipes.length) return;
+
+  // Dishes already on the menu leave the list. The rest are re-ranked by
+  // how many of your ingredients they use that are still left.
+  const matching = filteredRecipes()
+    .filter((recipe) => !onMenu(recipe))
+    .map((recipe, index) => ({
+      recipe,
+      index,
+      available: recipe.matchedItems.filter((name) => Kitchen.isAvailable(plan.stock.get(name))),
+    }))
+    .sort((a, b) => b.available.length - a.available.length || a.index - b.index);
+
+  const shown = matching.slice(0, shownCount);
+
+  // Redrawing replaces the elements, so remember which control had focus.
+  const focusedId = document.activeElement && document.activeElement.dataset.focusId;
+  results.replaceChildren(...shown.map((entry, i) => buildRecipe(entry.recipe, i + 1, entry.available, plan)));
+  if (focusedId) {
+    const again = results.querySelector(`[data-focus-id="${focusedId}"]`);
+    if (again) again.focus();
+  }
+
   const anyFilter = Object.values(FILTERS).some((filter) => filter.select.value);
   clearButton.hidden = !anyFilter;
   filterCount.textContent = matching.length
     ? `Showing ${shown.length} of ${matching.length}`
-    : "No dishes match these filters";
+    : menu.length ? "Every matching dish is on your menu" : "No dishes match these filters";
   moreButton.hidden = shown.length >= matching.length;
-}
-
-// Words that turn an ingredient into a different product:
-// "chicken stock" is not your chicken, "garlic powder" is not your garlic.
-const PRODUCT_WORDS = /\b(stock|broth|sauce|oil|powder|paste|juice|cube|cubes|granules|extract|vinegar)$/;
-
-// Find which of your ingredients (if any) a recipe ingredient is.
-function yourItemFor(ingredientName) {
-  const lower = ingredientName.toLowerCase();
-  return items.find((item) => {
-    const word = item.name.replace(/s$/, "");
-    if (!lower.includes(word)) return false;
-    return !PRODUCT_WORDS.test(lower) || PRODUCT_WORDS.test(item.name);
-  });
 }
 
 // Each recipe is laid out like a page in a cookbook:
 // a big photo on one side, the recipe on the other.
-function buildRecipe({ meal, ingredients, tags: recipeTags, matchedItems }, rank) {
+function buildRecipe(recipe, rank, available, plan) {
+  const { meal, ingredients, tags: recipeTags } = recipe;
+  const factor = factorFor(recipe);
   const page = el("li", "recipe");
 
   const figure = el("figure", "recipe-photo");
@@ -355,17 +418,41 @@ function buildRecipe({ meal, ingredients, tags: recipeTags, matchedItems }, rank
   }
   text.append(tags);
 
-  const leftOver = items.length - matchedItems.length;
-  text.append(el("p", "recipe-uses",
-    `Uses your ${sentenceList(matchedItems)}` +
-    (leftOver ? `. ${leftOver} of your ingredients aren't in this one.` : `, everything you listed.`)));
+  text.append(el("p", "recipe-uses", available.length
+    ? `Uses your ${sentenceList(available)}.`
+    : menu.length
+      ? "Your menu has used up the ingredients this one needs from your kitchen."
+      : "Uses none of your ingredients."));
 
-  // Ingredient list in your measurement system, with what you have marked.
+  // Servings: TheMealDB doesn't give them, so the original size is a guess you can change.
+  const servings = el("p", "servings");
+  const servesSelect = el("select");
+  servesSelect.dataset.focusId = "serves-" + meal.idMeal;
+  servesSelect.setAttribute("aria-label", "People the original recipe serves");
+  for (let n = 1; n <= 12; n++) {
+    const option = el("option", null, String(n));
+    option.value = n;
+    servesSelect.append(option);
+  }
+  servesSelect.value = serves.get(meal.idMeal) || Kitchen.DEFAULT_SERVES;
+  servesSelect.addEventListener("change", () => {
+    serves.set(meal.idMeal, Number(servesSelect.value));
+    renderAll();
+  });
+  servings.append(
+    `Amounts for ${people} ${people === 1 ? "person" : "people"}. The original recipe serves about `,
+    servesSelect,
+    " (TheMealDB doesn't say, so this is our guess)."
+  );
+  text.append(servings);
+
+  // Ingredient list, scaled and in your measurement system, compared with
+  // what's left in your kitchen after your menu.
   text.append(el("h3", "recipe-subhead", "Ingredients"));
   const list = el("ul", "ingredients");
   for (const { name, measure } of ingredients) {
-    const yours = yourItemFor(name);
-    const row = el("li", yours ? "have" : null);
+    const check = Kitchen.check(name, measure, factor, items, plan.stock, system);
+    const row = el("li", check ? "have" : null);
 
     const icon = el("img", "ingredient-icon");
     icon.src = MealDB.ingredientImage(name);
@@ -374,22 +461,22 @@ function buildRecipe({ meal, ingredients, tags: recipeTags, matchedItems }, rank
     icon.addEventListener("error", () => (icon.style.visibility = "hidden"));
 
     const label = el("span", "ingredient-name", name);
-    const amount = el("span", "ingredient-measure", Units.convertMeasure(measure, system));
+    const amount = el("span", "ingredient-measure", Units.scaleMeasure(measure, factor, system));
     row.append(icon, label, amount);
-
-    // If you gave an amount, say whether it's enough.
-    if (yours && yours.amount != null) {
-      const verdict = Units.compare(yours, measure, system);
-      const note = verdict === "enough"
-        ? `You have ${amountText(yours)}, that's enough`
-        : verdict
-          ? `You have ${amountText(yours)}, ${verdict}`
-          : `You have ${amountText(yours)}`;
-      row.append(el("span", "ingredient-note" + (verdict && verdict !== "enough" ? " short" : ""), note));
-    }
+    if (check) row.append(el("span", "ingredient-note" + (check.short ? " short" : ""), check.text));
     list.append(row);
   }
   text.append(list);
+
+  const actions = el("div", "recipe-actions");
+  const addToMenu = el("button", "add-to-menu", "Add to menu");
+  addToMenu.type = "button";
+  addToMenu.addEventListener("click", () => {
+    menu.push(recipe);
+    renderAll();
+    menuPanel.classList.add("just-added");
+    setTimeout(() => menuPanel.classList.remove("just-added"), 700);
+  });
 
   // The method, folded away until you want it.
   const method = el("details", "method");
@@ -404,11 +491,104 @@ function buildRecipe({ meal, ingredients, tags: recipeTags, matchedItems }, rank
   if (meal.strSource) links.append(makeLink(meal.strSource, "Original recipe"));
   if (meal.strYoutube) links.append(makeLink(meal.strYoutube, "Watch the video"));
   if (links.childElementCount) method.append(links);
-  text.append(method);
+
+  actions.append(addToMenu);
+  text.append(actions, method);
 
   page.append(figure, text);
   return page;
 }
+
+/* ---------- The menu sidebar ---------- */
+
+function renderMenu(plan) {
+  if (!lastRecipes.length && !menu.length) return;
+  menuPeople.textContent = `For ${people} ${people === 1 ? "person" : "people"}`;
+  menuToggle.textContent = menu.length ? `Your menu (${menu.length})` : "Your menu";
+
+  // The dishes you picked.
+  if (!menu.length) {
+    menuList.replaceChildren(el("li", "menu-empty",
+      "Add dishes to build your menu. Each one takes what it needs from your kitchen, and anything missing goes on the grocery list."));
+  } else {
+    menuList.replaceChildren(...menu.map((recipe) => {
+      const row = el("li", "menu-dish");
+      const thumb = el("img");
+      thumb.src = recipe.meal.strMealThumb + "/small";
+      thumb.alt = "";
+      const remove = el("button", "menu-remove", "×");
+      remove.type = "button";
+      remove.setAttribute("aria-label", `Take ${recipe.meal.strMeal} off the menu`);
+      remove.addEventListener("click", () => {
+        menu = menu.filter((picked) => picked !== recipe);
+        renderAll();
+      });
+      row.append(thumb, el("span", null, recipe.meal.strMeal), remove);
+      return row;
+    }));
+  }
+
+  // What's left in your kitchen.
+  stockList.replaceChildren(...items.map((item) => {
+    const entry = plan.stock.get(item.name);
+    const usedUp = !Kitchen.isAvailable(entry);
+    const row = el("li", usedUp ? "used-up" : null);
+    let left;
+    if (entry.value == null) left = "some";
+    else if (usedUp) left = "used up";
+    else if (entry.value < entry.start) {
+      left = `${Units.formatBase(entry.kind, entry.value, system)} of ${Units.formatBase(entry.kind, entry.start, system)}`;
+    } else left = Units.formatBase(entry.kind, entry.value, system);
+    row.append(el("span", null, item.name), el("span", "stock-amount", left));
+    return row;
+  }));
+
+  // The grocery list.
+  const lines = plan.grocery.sort((a, b) => a.name.localeCompare(b.name));
+  copyButton.hidden = lines.length === 0;
+  if (!lines.length) {
+    groceryList.replaceChildren(el("li", "menu-empty", menu.length
+      ? "Nothing to buy. Your kitchen covers this menu."
+      : "Nothing yet."));
+    return;
+  }
+  groceryList.replaceChildren(...lines.map((line) => {
+    const key = line.name.toLowerCase();
+    const row = el("li", "grocery-line");
+    const label = el("label");
+    const box = el("input");
+    box.type = "checkbox";
+    box.checked = ticked.has(key);
+    box.addEventListener("change", () => (box.checked ? ticked.add(key) : ticked.delete(key)));
+    const words = el("span", "grocery-words");
+    words.append(
+      el("span", "grocery-name", line.name),
+      el("span", "grocery-amount", Kitchen.describeLine(line, system)),
+      el("span", "grocery-for", "For " + sentenceList([...line.dishes]))
+    );
+    label.append(box, words);
+    row.append(label);
+    return row;
+  }));
+}
+
+copyButton.addEventListener("click", async () => {
+  const text = currentPlan().grocery
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((line) => `- ${line.name}: ${Kitchen.describeLine(line, system) || "some"}`)
+    .join("\n");
+  try {
+    await navigator.clipboard.writeText("Grocery list\n" + text);
+    copyButton.textContent = "Copied";
+  } catch (error) {
+    copyButton.textContent = "Couldn't copy";
+  }
+  setTimeout(() => (copyButton.textContent = "Copy list"), 1800);
+});
+
+// On phones the menu is a panel that slides up from the bottom.
+menuToggle.addEventListener("click", () => menuPanel.classList.add("open"));
+menuClose.addEventListener("click", () => menuPanel.classList.remove("open"));
 
 function makeLink(href, text) {
   const link = el("a", null, text);
