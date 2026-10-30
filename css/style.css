@@ -783,16 +783,17 @@ h1 {
   .menu-toggle {
     display: block;
     position: fixed;
-    right: 1rem;
-    bottom: 1rem;
+    /* Top right, small, so it never sits under other page badges at the bottom */
+    top: 0.75rem;
+    right: 0.75rem;
     z-index: 9;
-    padding: 0.85rem 1.5rem;
-    border: 0;
+    padding: 0.4rem 0.85rem;
+    border: 1px solid rgb(255 255 255 / 0.25);
     border-radius: 999px;
     background: var(--ink);
     color: var(--paper);
-    font: 600 1rem var(--sans);
-    box-shadow: 0 6px 20px rgb(0 0 0 / 0.3);
+    font: 600 0.8125rem var(--sans);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
     cursor: pointer;
   }
   .menu-toggle[hidden] { display: none; }

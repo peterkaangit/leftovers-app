@@ -504,7 +504,7 @@ function buildRecipe(recipe, rank, available, plan) {
 function renderMenu(plan) {
   if (!lastRecipes.length && !menu.length) return;
   menuPeople.textContent = `For ${people} ${people === 1 ? "person" : "people"}`;
-  menuToggle.textContent = menu.length ? `Your menu (${menu.length})` : "Your menu";
+  menuToggle.textContent = menu.length ? `Menu (${menu.length})` : "Menu";
 
   // The dishes you picked.
   if (!menu.length) {
