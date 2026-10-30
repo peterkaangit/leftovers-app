@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leftovers</title>
+  <meta name="description" content="Tell it what's in your fridge and get recipes that use it up.">
+
+  <!-- Fonts: Bodoni Moda for headings, Work Sans for everything else -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="hero">
+    <!-- Rotating food photos. app.js fills this from the list in js/backdrops.js -->
+    <div id="backdrop" class="backdrop" aria-hidden="true"></div>
+
+    <div class="hero-inner">
+      <p class="wordmark">Leftovers</p>
+
+      <h1>What's left in your&nbsp;kitchen?</h1>
+      <p class="lede">Tell us what you have and how much. We'll find the dishes that use up the most of it.</p>
+
+      <form id="fridge-form" class="pantry-form" autocomplete="off">
+        <div class="field field-name">
+          <label for="item-input">Ingredient</label>
+          <input id="item-input" type="text" placeholder="e.g. chicken, or chicken, rice, garlic">
+        </div>
+        <div class="field field-amount">
+          <label for="amount-input">Amount <span class="optional">(optional)</span></label>
+          <div class="amount-row">
+            <input id="amount-input" type="text" inputmode="decimal" placeholder="300">
+            <select id="unit-select" aria-label="Unit"></select>
+          </div>
+        </div>
+        <button id="add-button" type="button" class="add-button">Add</button>
+      </form>
+
+      <div class="hero-actions">
+        <div class="system-toggle" role="radiogroup" aria-label="Measurements">
+          <button type="button" role="radio" data-system="metric">Metric</button>
+          <button type="button" role="radio" data-system="us">US</button>
+        </div>
+        <button id="example-button" type="button" class="link-button">Try an example kitchen</button>
+      </div>
+
+      <!-- Your ingredients (filled in by app.js) -->
+      <ul id="chips" class="pantry" aria-label="Your ingredients"></ul>
+
+      <button id="find-button" type="button" class="find-button" disabled>Find recipes</button>
+    </div>
+  </header>
+
+  <main class="book">
+    <!-- Loading, errors and "nothing found" messages -->
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+
+    <!-- Filters, built from the recipes that were found (filled in by app.js) -->
+    <div id="filters" class="filters" hidden>
+      <label class="filter">
+        <span>Cuisine</span>
+        <select id="filter-area"></select>
+      </label>
+      <label class="filter">
+        <span>Meal type</span>
+        <select id="filter-category"></select>
+      </label>
+      <label class="filter" id="filter-tag-wrap">
+        <span>Tag</span>
+        <select id="filter-tag"></select>
+      </label>
+      <button id="clear-filters" type="button" class="clear-filters" hidden>Clear filters</button>
+      <p id="filter-count" class="filter-count"></p>
+    </div>
+
+    <!-- Recipe pages are added here by app.js -->
+    <ol id="results" class="results"></ol>
+    <button id="more-button" type="button" class="more-button" hidden>Show more dishes</button>
+  </main>
+
+  <footer class="colophon">
+    Recipes and ingredient photos from <a href="https://www.themealdb.com" target="_blank" rel="noopener">TheMealDB</a>.
+    Background photos from <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>.
+  </footer>
+
+  <!-- Order matters: app.js uses everything defined in the files above it. -->
+  <script src="js/mealdb.js"></script>
+  <script src="js/units.js"></script>
+  <script src="js/backdrops.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
