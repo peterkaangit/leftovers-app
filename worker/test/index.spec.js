@@ -1,25 +1,22 @@
-import {
-	env,
-	createExecutionContext,
-	waitOnExecutionContext,
-	SELF,
-} from "cloudflare:test";
+import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
-import worker from "../src";
 
-describe("Hello World worker", () => {
-	it("responds with Hello World! (unit style)", async () => {
-		const request = new Request("http://example.com");
-		// Create an empty context to pass to `worker.fetch()`.
-		const ctx = createExecutionContext();
-		const response = await worker.fetch(request, env, ctx);
-		// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
-		await waitOnExecutionContext(ctx);
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
+// These tests only check the Worker's own answers, so they don't need TheMealDB.
+// Run them with: npm test
+describe("Leftovers API", () => {
+	it("explains itself at /", async () => {
+		const response = await SELF.fetch("http://example.com/");
+		const body = await response.json();
+		expect(body.name).toBe("Leftovers API");
 	});
 
-	it("responds with Hello World! (integration style)", async () => {
-		const response = await SELF.fetch("http://example.com");
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
+	it("asks for items when ?items= is missing", async () => {
+		const response = await SELF.fetch("http://example.com/recipes");
+		expect(response.status).toBe(400);
+	});
+
+	it("answers 404 for unknown paths", async () => {
+		const response = await SELF.fetch("http://example.com/nope");
+		expect(response.status).toBe(404);
 	});
 });
