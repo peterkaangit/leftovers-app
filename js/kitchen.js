@@ -4,7 +4,8 @@
  * No API calls and no page drawing here, just maths:
  *   - which of your ingredients a recipe ingredient is,
  *   - what's left in your kitchen after the dishes on your menu,
- *   - what you still need to buy.
+ *   - what you still need to buy,
+ *   - which of your items a recipe would (almost) finish.
  *
  * Amounts are compared in base units (grams, millilitres, pieces) using
  * units.js. When the kinds differ, for example you entered grams and the
@@ -192,5 +193,75 @@ const Kitchen = (() => {
     return { text: `You have ${left}, need ${Units.formatBase(entry.kind, missing, system)} more`, short: true };
   }
 
-  return { DEFAULT_SERVES, matchItem, plan, describeLine, isAvailable, check };
+  /**
+   * How much "almost all of it" is. Big amounts are harder to finish, so
+   * the bar goes up: 80% normally, 85% over 500 g, 90% over a kilo.
+   */
+  function finishLine(grams) {
+    if (grams != null && grams > 1000) return 0.9;
+    if (grams != null && grams > 500) return 0.85;
+    return 0.8;
+  }
+
+  // Using less than this share of something doesn't really help finish it.
+  const TOO_LITTLE = 0.05;
+
+  // Leftovers this small (in grams) count as finished, as long as the
+  // recipe uses at least half of what you have.
+  const CRUMBS = 50;
+
+  /**
+   * How much of each of your items one recipe would use, out of what's
+   * left in your kitchen after your menu.
+   * Returns a Map: item name -> { share, finishes }
+   *   share:    0 to 1, e.g. 0.6 = uses 60% of what you have left
+   *   finishes: true when it leaves (almost) nothing behind
+   * Items without an amount, or with units we can't convert, are left out.
+   */
+  function usage(recipe, factor, items, stock) {
+    // Add up first: "chicken breast" and "chicken thighs" both take from your chicken.
+    const wantedPerItem = new Map();
+    for (const { name, measure } of recipe.ingredients) {
+      const item = matchItem(name, items);
+      if (!item) continue;
+      const entry = stock.get(item.name);
+      if (entry.value == null || entry.value <= 0.0001) continue;
+      const needed = need(measure, factor);
+      const wanted = needed && inStockUnits(needed, name, entry);
+      if (wanted == null) continue;
+      wantedPerItem.set(item.name, (wantedPerItem.get(item.name) || 0) + wanted);
+    }
+
+    const result = new Map();
+    for (const [itemName, wanted] of wantedPerItem) {
+      const entry = stock.get(itemName);
+      const share = Math.min(1, wanted / entry.value);
+      const grams = Weights.toGrams({ kind: entry.kind, value: entry.value, word: "" }, itemName);
+      let finishes = share >= finishLine(grams) - 0.0001;
+      // A few grams left over still counts. Not for pieces: half the eggs is not "finished".
+      if (!finishes && entry.kind !== "count" && grams != null && share >= 0.5) {
+        finishes = grams * (1 - share) <= CRUMBS;
+      }
+      result.set(itemName, { share, finishes });
+    }
+    return result;
+  }
+
+  /**
+   * One number for "how much of your kitchen does this recipe finish off",
+   * used by the "Finishes the most" sort. Each item adds up to 1 point:
+   * a full point when the recipe finishes it, otherwise the share it uses
+   * (nothing under 5%). Items marked "needs to go" count double.
+   */
+  function finishScore(use, items) {
+    let score = 0;
+    for (const item of items) {
+      const u = use.get(item.name);
+      if (!u || u.share < TOO_LITTLE) continue;
+      score += (u.finishes ? 1 : u.share) * (item.needsToGo ? 2 : 1);
+    }
+    return score;
+  }
+
+  return { DEFAULT_SERVES, matchItem, plan, describeLine, isAvailable, check, usage, finishScore };
 })();

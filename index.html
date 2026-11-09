@@ -32,7 +32,7 @@
       </p>
 
       <h1>What's left in your&nbsp;kitchen?</h1>
-      <p class="lede">Tell us what you have and how much. We'll find the dishes that use up the most of it.</p>
+      <p class="lede">Tell us what you have and how much. We'll find the dishes that use up the most of it. Tap the hourglass on anything that needs to go soon.</p>
 
       <form id="fridge-form" class="pantry-form" autocomplete="off">
         <div class="field field-name">
@@ -79,6 +79,13 @@
 
     <!-- Filters, built from the recipes that were found (filled in by app.js) -->
     <div id="filters" class="filters" hidden>
+      <label class="filter">
+        <span>Sort by</span>
+        <select id="sort-select">
+          <option value="match">Uses the most items</option>
+          <option value="finish">Finishes the most</option>
+        </select>
+      </label>
       <label class="filter">
         <span>Cuisine</span>
         <select id="filter-area"></select>

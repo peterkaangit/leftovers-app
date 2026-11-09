@@ -287,6 +287,30 @@ h1 {
 }
 .chip-remove:hover { background: rgb(255 255 255 / 0.2); color: #fff; }
 
+/* "Needs to go": the hourglass button, and a saffron ring on marked chips */
+.chip-hourglass {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgb(255 255 255 / 0.55);
+  cursor: pointer;
+}
+.chip-hourglass:hover { background: rgb(255 255 255 / 0.2); color: #fff; }
+.chip-hourglass[aria-pressed="true"] { background: var(--saffron); color: var(--ink); }
+
+.chip.needs-to-go { border-color: var(--saffron); box-shadow: 0 0 0 1px var(--saffron); }
+.chip-flag {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--saffron);
+}
+
 .find-button {
   align-self: flex-start;
   margin-top: 2rem;
@@ -521,6 +545,31 @@ h1 {
 }
 .ingredient-note.short { color: var(--short); }
 
+/* The finisher sticker: a small slanted label, like a sticker on a jar */
+.finisher {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid var(--saffron);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transform: rotate(-3deg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+}
+.finisher.needs-to-go { background: var(--saffron); }
+
+.recipe-finishes {
+  max-width: 34rem;
+  margin: 0.35rem 0 0;
+  font: italic 400 1.125rem var(--serif);
+  color: #9a6b12;
+}
+
 .method { margin-top: 2.25rem; }
 
 .method summary {
@@ -708,6 +757,14 @@ h1 {
 .stock-amount { color: var(--muted); text-align: right; }
 .stock-list li.used-up span:first-child { text-decoration: line-through; color: var(--muted); }
 .stock-list li.used-up .stock-amount { color: var(--short); }
+.stock-list li.needs-to-go span:first-child::after {
+  content: "needs to go";
+  margin-left: 0.5rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9a6b12;
+}
 
 .grocery-head {
   display: flex;

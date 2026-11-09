@@ -30,6 +30,7 @@ const groceryList = document.getElementById("grocery-list");
 const copyButton = document.getElementById("copy-grocery");
 const menuToggle = document.getElementById("menu-toggle");
 const menuClose = document.getElementById("menu-close");
+const sortSelect = document.getElementById("sort-select");
 
 // The three filter dropdowns, and which recipe field each one looks at.
 const FILTERS = {
@@ -42,8 +43,9 @@ const FILTERS = {
 const PAGE_SIZE = 6;
 let shownCount = PAGE_SIZE;
 
-// Your ingredients, e.g. [{ name: "chicken", amount: 300, unit: "g" }, ...].
-// amount is null when you didn't give one. Amounts are kept in the unit you
+// Your ingredients, e.g. [{ name: "chicken", amount: 300, unit: "g", needsToGo: true }, ...].
+// amount is null when you didn't give one. needsToGo marks things you
+// want gone soon; the "Finishes the most" sort counts them double. Amounts are kept in the unit you
 // typed them in, and converted only when shown.
 let items = [];
 
@@ -141,12 +143,13 @@ function addFromForm() {
   const parts = text.split(",").map((part) => part.trim().toLowerCase()).filter(Boolean);
   parts.forEach((name, index) => {
     const isLast = index === parts.length - 1;
+    const existing = items.findIndex((item) => item.name === name);
     const entry = {
       name,
       amount: isLast && hasAmount ? amount : null,
       unit: unitSelect.value,
+      needsToGo: existing >= 0 && items[existing].needsToGo, // keep the mark when updating
     };
-    const existing = items.findIndex((item) => item.name === name);
     if (existing >= 0) items[existing] = entry; // adding again updates the amount
     else items.push(entry);
   });
@@ -184,17 +187,40 @@ function renderChips() {
     text.append(el("span", "chip-name", item.name));
     const amount = amountText(item);
     if (amount) text.append(el("span", "chip-amount", amount));
+    if (item.needsToGo) {
+      chip.classList.add("needs-to-go");
+      text.append(el("span", "chip-flag", "needs to go"));
+    }
+
+    // The hourglass: tap to mark (or unmark) something that needs to go soon.
+    const flag = el("button", "chip-hourglass");
+    flag.type = "button";
+    flag.innerHTML = HOURGLASS; // our own fixed drawing, never API data
+    flag.setAttribute("aria-pressed", String(Boolean(item.needsToGo)));
+    flag.setAttribute("aria-label", `${item.name} needs to go`);
+    flag.title = item.needsToGo ? "Needs to go (tap to unmark)" : "Mark as needs to go";
+    flag.addEventListener("click", () => {
+      item.needsToGo = !item.needsToGo;
+      renderChips();
+      renderAll(); // the ranking changes
+      chipList.querySelector(`[data-item="${CSS.escape(item.name)}"] .chip-hourglass`).focus();
+    });
 
     const remove = el("button", "chip-remove", "×");
     remove.type = "button";
     remove.setAttribute("aria-label", `Remove ${item.name}`);
     remove.addEventListener("click", () => removeItem(item.name));
 
-    chip.append(photo, text, remove);
+    chip.append(photo, text, flag, remove);
     chipList.append(chip);
   }
   findButton.disabled = items.length === 0;
 }
+
+// A small hourglass icon, drawn with lines so it takes the button's colour.
+const HOURGLASS = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" ' +
+  'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M6 3h12M6 21h12M7 3c0 5 10 6 10 9s-10 4-10 9M17 3c0 5-10 6-10 9s10 4 10 9"/></svg>';
 
 addButton.addEventListener("click", addFromForm);
 form.addEventListener("submit", (event) => {
@@ -214,7 +240,7 @@ form.addEventListener("submit", (event) => {
 exampleButton.addEventListener("click", () => {
   const g = system === "metric";
   items = [
-    { name: "chicken", amount: g ? 400 : 14, unit: g ? "g" : "oz" },
+    { name: "chicken", amount: g ? 400 : 14, unit: g ? "g" : "oz", needsToGo: true },
     { name: "rice", amount: g ? 250 : 1, unit: g ? "g" : "cup" },
     { name: "garlic", amount: 4, unit: "pcs" },
     { name: "onion", amount: 1, unit: "pcs" },
@@ -314,6 +340,11 @@ function filteredRecipes() {
       !filter.select.value || filter.values(recipe).includes(filter.select.value)));
 }
 
+sortSelect.addEventListener("change", () => {
+  shownCount = PAGE_SIZE;
+  renderResults();
+});
+
 for (const filter of Object.values(FILTERS)) {
   filter.select.addEventListener("change", () => {
     shownCount = PAGE_SIZE;
@@ -366,22 +397,32 @@ function renderAll() {
 function renderResults(plan = currentPlan()) {
   if (!lastRecipes.length) return;
 
-  // Dishes already on the menu leave the list. The rest are re-ranked by
-  // how many of your ingredients they use that are still left.
+  // Dishes already on the menu leave the list. The rest are re-ranked on
+  // what's still left: by how many of your ingredients they use, or (with
+  // "Finishes the most") by how much of your kitchen they finish off.
+  const byFinish = sortSelect.value === "finish";
   const matching = filteredRecipes()
     .filter((recipe) => !onMenu(recipe))
-    .map((recipe, index) => ({
-      recipe,
-      index,
-      available: recipe.matchedItems.filter((name) => Kitchen.isAvailable(plan.stock.get(name))),
-    }))
-    .sort((a, b) => b.available.length - a.available.length || a.index - b.index);
+    .map((recipe, index) => {
+      const use = Kitchen.usage(recipe, factorFor(recipe), items, plan.stock);
+      return {
+        recipe,
+        index,
+        use,
+        score: Kitchen.finishScore(use, items),
+        available: recipe.matchedItems.filter((name) => Kitchen.isAvailable(plan.stock.get(name))),
+      };
+    })
+    .sort((a, b) =>
+      (byFinish ? b.score - a.score : 0) ||
+      b.available.length - a.available.length ||
+      a.index - b.index);
 
   const shown = matching.slice(0, shownCount);
 
   // Redrawing replaces the elements, so remember which control had focus.
   const focusedId = document.activeElement && document.activeElement.dataset.focusId;
-  results.replaceChildren(...shown.map((entry, i) => buildRecipe(entry.recipe, i + 1, entry.available, plan)));
+  results.replaceChildren(...shown.map((entry, i) => buildRecipe(entry.recipe, i + 1, entry.available, entry.use, plan)));
   if (focusedId) {
     const again = results.querySelector(`[data-focus-id="${focusedId}"]`);
     if (again) again.focus();
@@ -397,7 +438,7 @@ function renderResults(plan = currentPlan()) {
 
 // Each recipe is laid out like a page in a cookbook:
 // a big photo on one side, the recipe on the other.
-function buildRecipe(recipe, rank, available, plan) {
+function buildRecipe(recipe, rank, available, use, plan) {
   const { meal, ingredients, tags: recipeTags } = recipe;
   const factor = factorFor(recipe);
   const page = el("li", "recipe");
@@ -423,6 +464,13 @@ function buildRecipe(recipe, rank, available, plan) {
     : menu.length
       ? "Your menu has used up the ingredients this one needs from your kitchen."
       : "Uses none of your ingredients."));
+
+  // The items this dish would (almost) finish, "needs to go" ones first.
+  const finished = items
+    .filter((item) => use.get(item.name)?.finishes)
+    .sort((a, b) => Number(Boolean(b.needsToGo)) - Number(Boolean(a.needsToGo)))
+    .map((item) => item.name);
+  if (finished.length) text.append(el("p", "recipe-finishes", `Finishes your ${sentenceList(finished)}.`));
 
   // Servings: TheMealDB doesn't give them, so the original size is a guess you can change.
   const servings = el("p", "servings");
@@ -453,6 +501,7 @@ function buildRecipe(recipe, rank, available, plan) {
   for (const { name, measure } of ingredients) {
     const check = Kitchen.check(name, measure, factor, items, plan.stock, system);
     const row = el("li", check ? "have" : null);
+    const item = check && Kitchen.matchItem(name, items);
 
     const icon = el("img", "ingredient-icon");
     icon.src = MealDB.ingredientImage(name);
@@ -463,7 +512,20 @@ function buildRecipe(recipe, rank, available, plan) {
     const label = el("span", "ingredient-name", name);
     const amount = el("span", "ingredient-measure", Units.scaleMeasure(measure, factor, system));
     row.append(icon, label, amount);
-    if (check) row.append(el("span", "ingredient-note" + (check.short ? " short" : ""), check.text));
+    if (check) {
+      const note = el("span", "ingredient-note" + (check.short ? " short" : ""));
+      // The finisher sticker: this dish leaves (almost) none of it behind.
+      if (use.get(item.name)?.finishes) {
+        // Brighter for things marked "needs to go".
+        const sticker = el("span", "finisher" + (item.needsToGo ? " needs-to-go" : ""), "Finishes it");
+        sticker.title = item.needsToGo
+          ? "Uses up (almost) all you have left, and you marked it as needs to go"
+          : "Uses up (almost) all you have left";
+        note.append(sticker);
+      }
+      note.append(check.text);
+      row.append(note);
+    }
     list.append(row);
   }
   text.append(list);
@@ -533,6 +595,7 @@ function renderMenu(plan) {
     const entry = plan.stock.get(item.name);
     const usedUp = !Kitchen.isAvailable(entry);
     const row = el("li", usedUp ? "used-up" : null);
+    if (item.needsToGo) row.classList.add("needs-to-go");
     let left;
     if (entry.value == null) left = "some";
     else if (usedUp) left = "used up";
