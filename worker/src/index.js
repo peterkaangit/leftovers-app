@@ -30,7 +30,7 @@ const MAX_ITEMS = 12;
 
 // Websites that are allowed to call this API from a browser (see CORS below).
 const ALLOWED_ORIGINS = [
-  "https://legendary-phoenix-1d3e3e.netlify.app", // the live site
+  "https://finishthefridge.netlify.app", // the live site
   "null", // index.html opened by double-clicking (file://) sends "null"
   "http://localhost:8787", // wrangler dev
 ];
